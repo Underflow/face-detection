@@ -8,6 +8,7 @@ from theano import grad
 from theano.tensor import nnet
 from theano.tensor import dot
 import sys
+import math
 
 class Layer:
     x = tensor.vector('input')
@@ -17,12 +18,12 @@ class Layer:
     err = tensor.vector('err')
 
     activation = function([x, w], tensor.nnet.sigmoid(dot(w, x)))
-    sigp = tensor.exp(lout) / tensor.sqr((1 + tensor.exp(lout)))
+    sigp = tensor.exp(-lout) / tensor.sqr((1 + tensor.exp(-lout)))
     fun_err = function([lout, w2, err], tensor.dot(w2.T, err) * sigp)
     delta_w = function([err, lout], err.dimshuffle((0, 'x')) * lout)
 
     def __init__(self, input_size, output_size):
-        self.weights = np.random.randn(output_size, input_size)
+        self.weights = np.random.randn(output_size, input_size) / 10
         self.learning_rate = 1
         self.last_output = []
         self.error_val = 0
@@ -59,8 +60,9 @@ class Neuralnet(object):
             output_vector = layer.eval(output_vector)
         return output_vector
 
-    def update_progress(self, progress, error):
-        sys.stdout.write('\rLearning : [{0}] {1}% - err: {2}'.format('#'*(progress/10) + ' '*(10 - progress/10), progress, error))
+    def update_progress(self, progress, error, valid_error):
+        sys.stdout.write('\rBatch : [{0}] {1}% - err: {2}%, val-err: {3}%'.format('#'*(progress/10) + ' '*(10 - progress/10), progress, error, valid_error))
+
         sys.stdout.flush()
 
     def train(self, examples, expected, steps, rate):
@@ -69,10 +71,18 @@ class Neuralnet(object):
         if len(self.layers) <= 0:
             raise Exception("Impossible to train an empty neural network")
         print("Training neural network. {0} learning steps, learning rate : {1}, {2} examples".format(steps, rate, len(examples)))
+
+        training_examples = len(examples) / 2
         for i in range(0, steps):
             error = 0
+            valid_error = 0
+            for example, label in zip(examples[training_examples:], expected[:training_examples]):
+                out = self.eval(example)
+                last_error = Neuralnet.ll_error(label, out)
+                valid_error += np.sum(last_error ** 2)
+
             # On-line training with stochastic gradient descent
-            for example, label in zip(examples, expected):
+            for example, label in zip(examples[0:training_examples], expected[0:training_examples]):
                 # Propagate signal
                 out = self.eval(example)
                 last_error = Neuralnet.ll_error(label, out)
@@ -90,9 +100,10 @@ class Neuralnet(object):
                 for layer in self.layers:
                     layer.weights += rate * Layer.delta_w(layer.error_val, last_output)
                     last_output = layer.last_output
-            error = round(error, 4)
-            self.update_progress(int(float(i + 1) / steps * 100), error)
-        print("\nFinal error: {0}".format(error))
+            error = round(math.sqrt(error / training_examples / 400) * 100, 4)
+            valid_error = round(math.sqrt(valid_error / training_examples / 400) * 100, 4)
+            self.update_progress(int(float(i + 1) / steps * 100), error, valid_error)
+        print("")
 
 
 class Autoencoder(Neuralnet):
@@ -105,7 +116,4 @@ class Autoencoder(Neuralnet):
         # Learn the identity function to proceed a dimensionality reduction
         super(Autoencoder, self).train(dataset, dataset, steps, rate)
          # Because a trained autoencoder is not the identity function
-        self.layers.pop()
-
-
-
+        #self.layers.pop()
