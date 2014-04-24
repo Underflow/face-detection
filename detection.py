@@ -12,7 +12,7 @@ def train_autoencoder(dataset, batch_size, learning_rate, steps):
     a.train(dataset[0:batch_size], 375, 0, 0.3)
 
     batch_count = len(dataset) / batch_size
-    for _ in range(1, steps):
+    for _ in range(0, steps):
         for i in range(1, batch_count):
             ts = dataset[i * batch_size: (i + 1) * batch_size]
             autoencoder.Neuralnet.train(a, ts, ts, steps, learning_rate)
@@ -26,8 +26,8 @@ steps = 1
 aa = train_autoencoder(dataset, batch_size, learning_rate, steps)
 
 # Visualisation of the output layer of the autoencoder
-a = dataset[1]
-b = aa.eval(dataset[1])
+a = dataset[129]
+b = aa.eval(a)
 a = np.array(a.reshape(20, 20) * 255, dtype="uint8")
 b = np.array(b.reshape(20, 20) * 255, dtype="uint8")
 im = Image.fromarray(a)
