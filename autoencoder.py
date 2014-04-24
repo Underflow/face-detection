@@ -12,25 +12,25 @@ import math
 
 class Layer:
     x = tensor.vector('input')
-    lout = tensor.vector('last_output')
+    last_out = tensor.vector('last_output')
     w = tensor.matrix('weights')
     w2 = tensor.matrix('weights')
     err = tensor.vector('err')
 
     activation = function([x, w], tensor.nnet.sigmoid(dot(w, x)))
-    sigp = tensor.exp(-lout) / tensor.sqr((1 + tensor.exp(-lout)))
-    fun_err = function([lout, w2, err], tensor.dot(w2.T, err) * sigp)
-    delta_w = function([err, lout], err.dimshuffle((0, 'x')) * lout)
+    sigp = tensor.exp(-last_out) / tensor.sqr((1 + tensor.exp(-last_out)))
+    fun_err = function([last_out, w2, err], np.multiply(tensor.dot(w2.T, err), sigp))
+    delta_w = function([err, last_out], np.multiply(err.dimshuffle((0, 'x')), last_out))
 
     def __init__(self, input_size, output_size):
-        self.weights = np.random.randn(output_size, input_size) / 10
+        self.weights = np.random.randn(output_size, input_size)
         self.learning_rate = 1
         self.last_output = []
-        self.error_val = 0
+        self.last_error = 0
 
     def error(self, n_error, n_weights):
-        self.error_val = Layer.fun_err(self.last_output, n_weights, n_error)
-        return self.error_val
+        self.last_error = Layer.fun_err(self.last_output, n_weights, n_error)
+        return self.last_error
 
     def eval(self, input_val):
         if np.shape(self.weights)[1] != np.shape(input_val)[0]:
@@ -41,7 +41,7 @@ class Layer:
 class Neuralnet(object):
     y = tensor.vector("output")
     t = tensor.vector("exected")
-    ll_error = function([t, y], t - y)
+    ll_error = function([t, y], y - t)
 
     def __init__(self):
         self.output_dim = None
@@ -60,8 +60,9 @@ class Neuralnet(object):
             output_vector = layer.eval(output_vector)
         return output_vector
 
-    def update_progress(self, progress, error, valid_error):
-        sys.stdout.write('\rBatch : [{0}] {1}% - err: {2}%, val-err: {3}%'.format('#'*(progress/10) + ' '*(10 - progress/10), progress, error, valid_error))
+    def update_progress(self, progress, error, valid_error, w_avg, w_avg2):
+        sys.stdout.write('\rBatch : [{0}] {1}% - err: {2}%, val-err: {3}%, weight average: {4} - {5}'.format('#'*(progress/10) + ' '*(10 -
+                    progress/10), progress, error, valid_error, w_avg, w_avg2))
 
         sys.stdout.flush()
 
@@ -70,15 +71,16 @@ class Neuralnet(object):
             raise ValueError("There is not the same number of examples and labels")
         if len(self.layers) <= 0:
             raise Exception("Impossible to train an empty neural network")
-        print("Training neural network. {0} learning steps, learning rate : {1}, {2} examples".format(steps, rate, len(examples)))
+        # print("Training neural network. {0} learning steps, learning rate : {1}, {2} examples".format(steps, rate, len(examples)))
 
         training_examples = len(examples) / 2
         for i in range(0, steps):
             error = 0
             valid_error = 0
-            for example, label in zip(examples[training_examples:], expected[:training_examples]):
+            for example, label in zip(examples[training_examples:], expected[training_examples:]):
                 out = self.eval(example)
                 last_error = Neuralnet.ll_error(label, out)
+                a = last_error[0]
                 valid_error += np.sum(last_error ** 2)
 
             # On-line training with stochastic gradient descent
@@ -87,7 +89,7 @@ class Neuralnet(object):
                 out = self.eval(example)
                 last_error = Neuralnet.ll_error(label, out)
                 error += np.sum(last_error ** 2)
-                self.layers[-1].error_val = last_error
+                self.layers[-1].last_error = last_error
                 last_weights = self.layers[-1].weights
 
                 # Back-propagation
@@ -98,12 +100,16 @@ class Neuralnet(object):
                 # Weight update
                 last_output = example
                 for layer in self.layers:
-                    layer.weights += rate * Layer.delta_w(layer.error_val, last_output)
+                    dw = rate * Layer.delta_w(layer.last_error, last_output)
+                    layer.weights -= dw
                     last_output = layer.last_output
-            error = round(math.sqrt(error / training_examples / 400) * 100, 4)
-            valid_error = round(math.sqrt(valid_error / training_examples / 400) * 100, 4)
-            self.update_progress(int(float(i + 1) / steps * 100), error, valid_error)
-        print("")
+
+            # FIXME: refactor
+            error = round(math.sqrt(error / training_examples / 400) * 100, 2)
+            valid_error = round(math.sqrt(valid_error / training_examples / 400) * 100, 2)
+            w_avg = round(np.average(self.layers[-3].weights), 2)
+            w_avg2 = round(np.average(self.layers[-1].weights), 2)
+            self.update_progress(int(float(i + 1) / steps * 100), error, valid_error, w_avg, w_avg2)
 
 
 class Autoencoder(Neuralnet):
