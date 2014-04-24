@@ -9,7 +9,7 @@ dataset = dataset.load_dataset()
 
 def train_autoencoder(dataset, batch_size, learning_rate, steps):
     a = autoencoder.Autoencoder()
-    a.train(dataset[0:batch_size], 375, 0, 0.3)
+    a.train(dataset[0:batch_size], 390, 0, 0.3)
 
     batch_count = len(dataset) / batch_size
     for _ in range(0, steps):
@@ -20,13 +20,13 @@ def train_autoencoder(dataset, batch_size, learning_rate, steps):
     return a
 
 batch_size = 40
-learning_rate = 3.0 / batch_size
+learning_rate = 0.5 / batch_size
 steps = 1
 
 aa = train_autoencoder(dataset, batch_size, learning_rate, steps)
 
 # Visualisation of the output layer of the autoencoder
-a = dataset[129]
+a = dataset[0]
 b = aa.eval(a)
 a = np.array(a.reshape(20, 20) * 255, dtype="uint8")
 b = np.array(b.reshape(20, 20) * 255, dtype="uint8")

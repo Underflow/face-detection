@@ -10,7 +10,7 @@ Work in progress, face detection project
 Autoencoding result
 ===================
 
-One backprop pass on the dataset :
+One backprop pass on the dataset (probably still mostly a global average) :
 
 ![Autoencoding result](face1.png)
 ![Autoencoding result 2](face2.png)
