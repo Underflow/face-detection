@@ -89,13 +89,6 @@ Model training
     train_network(build_nn(), 0.005, 10, 100)
 
 
-.. image:: notebook/output_11_0.png
-
-
-
-.. image:: notebook/output_11_1.png
-
-
 
 .. image:: notebook/output_11_2.png
 
