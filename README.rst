@@ -91,27 +91,27 @@ Model training
     train_network(build_nn(), 0.005, 10, 1000)
 
 
-.. image:: output_11_0.png
+.. image:: notebook/output_11_0.png
 
 
 
-.. image:: output_11_1.png
+.. image:: notebook/output_11_1.png
 
 
 
-.. image:: output_11_2.png
+.. image:: notebook/output_11_2.png
 
 
 
-.. image:: output_11_3.png
+.. image:: notebook/output_11_3.png
 
 
 
-.. image:: output_11_4.png
+.. image:: notebook/output_11_4.png
 
 
 
-.. image:: output_11_5.png
+.. image:: notebook/output_11_5.png
 
 
 ::
