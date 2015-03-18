@@ -30,7 +30,7 @@ class FullyConnLayer():
             initial_W = np.asarray(
                 rng.uniform(
                     low  = -4 * np.sqrt(6. / (input_dimension + dimension)),
-                    high = -4 * np.sqrt(6. / (input_dimension + dimension)),
+                    high = 4 * np.sqrt(6. / (input_dimension + dimension)),
                     size = (input_dimension, dimension)
                 ),
                 dtype=theano.config.floatX

@@ -1,3 +1,4 @@
 dataset
 dataset.bin
 *.pyc
+.ipynb_checkpoints

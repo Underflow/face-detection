@@ -21,13 +21,13 @@ def get_training_files():
 
 def generate_dataset():
     tf = get_training_files()
-    dataset = np.empty([len(tf), 400])
+    dataset = np.empty([len(tf), 1600])
     for i, image_file in enumerate(tf):
         progress("Loading pictures", i, len(tf))
-        im = misc.imresize(misc.imread(image_file), (20, 20))
+        im = misc.imresize(misc.imread(image_file), (40, 40))
         lum = np.array([0.21, 0.71, 0.07])
-        for (x, y) in np.ndindex(20, 20):
-            dataset[i][x + y * 20] = np.dot(im[x][y], lum) / 255.
+        for (x, y) in np.ndindex(40, 40):
+            dataset[i][x + y * 40] = np.dot(im[x][y], lum) / 255.
     f = open("dataset.bin", "w")
     pickle.dump(dataset, f)
     return dataset
