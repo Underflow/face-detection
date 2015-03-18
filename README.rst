@@ -20,7 +20,8 @@ Loading data
     Loading dataset.bin
 
 
-# Model plan (fcc autoencoder 1600-30-1600 with MSE loss)
+Model plan (fcc autoencoder 1600-30-1600 with MSE loss)
+=======================================================
 
 .. code:: python
 
