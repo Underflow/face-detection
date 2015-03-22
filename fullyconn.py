@@ -77,10 +77,23 @@ class MLP():
                                               input=self.layers[-1].output))
         self.output = self.layers[-1].output
         self.params = self.params + self.layers[-1].params
+        
+    def remove_last_layer(self):
+        if len(self.layers) == 1:
+            self.params = []
+            self.output = self.input
+        else:
+            self.layers.pop()
+            self.params = []
+            for layer in self.layers:
+                self.params += layer.params
+            self.output = self.layers[-1].output
 
-    def build_train(self, learning_rate):
+    def build_train(self, learning_rate, regularization):
         labels = T.matrix("labels", dtype=theano.config.floatX)
         cost = T.sum((self.output - labels) ** 2)
+        for layer in self.layers:
+            cost = cost + regularization * T.sum(layer.W ** 2)
         gparams = [T.grad(cost, param) for param in self.params]
         updates = [
                 (param, param - learning_rate * gparam) for param, gparam in zip(self.params, gparams)

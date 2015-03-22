@@ -24,7 +24,7 @@ def generate_dataset():
     dataset = np.empty([len(tf), 40, 40, 3])
     for i, image_file in enumerate(tf):
         progress("Loading pictures", i, len(tf))
-        dataset[i] = misc.imresize(misc.imread(image_file), (40, 40)) / 400
+        dataset[i] = misc.imresize(misc.imread(image_file)[50:-50,50:-50], (40, 40)) / 255.
     f = open("dataset.bin", "w")
     pickle.dump(dataset, f)
     return dataset
