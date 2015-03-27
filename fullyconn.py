@@ -3,6 +3,15 @@ import theano
 import theano.tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
 
+class InputLayer():
+    def __init__(self, name, dimension, input=None):
+        self.name   = name
+        self.input  = input
+        self.output = input
+        self.params = []
+        self.dimension = dimension
+        self.regularization = None
+
 class FullyConnLayer():
     def __init__(self,
                  rng,
@@ -47,6 +56,7 @@ class FullyConnLayer():
         self.theano_rng = theano_rng
         self.W = W
         self.b = b
+        self.regularization = T.sum(self.W ** 2)
         self.params = [self.W, self.b]
         self.output = activation(T.dot(self.input, self.W) + self.b)
 
@@ -57,27 +67,24 @@ class MLP():
             self.input = T.matrix("input")
         else:
             self.input = input
-        self.output = self.input
         self.input_dimension = input_dimension
         self.layers = []
         self.params = []
+        self.layers.append(InputLayer(name="input_layer",
+                                      dimension=self.input_dimension,
+                                      input=self.input))
+        self.output = self.layers[0].output
 
     def add_layer(self, name, dimension):
-        if self.layers == []:
-            self.layers.append(FullyConnLayer(self.rng,
-                                              name,
-                                              dimension,
-                                              self.input_dimension,
-                                              input=self.input))
-        else:
-            self.layers.append(FullyConnLayer(self.rng,
-                                              name,
-                                              dimension,
-                                              self.layers[-1].dimension,
-                                              input=self.layers[-1].output))
+        assert self.layers != []
+        self.layers.append(FullyConnLayer(self.rng,
+                                          name,
+                                          dimension,
+                                          self.layers[-1].dimension,
+                                          input=self.layers[-1].output))
         self.output = self.layers[-1].output
         self.params = self.params + self.layers[-1].params
-        
+
     def remove_last_layer(self):
         if len(self.layers) == 1:
             self.params = []
@@ -89,11 +96,12 @@ class MLP():
                 self.params += layer.params
             self.output = self.layers[-1].output
 
-    def build_train(self, learning_rate, regularization):
+    def build_train(self, learning_rate, regularization_factor):
         labels = T.matrix("labels", dtype=theano.config.floatX)
         cost = T.sum((self.output - labels) ** 2)
         for layer in self.layers:
-            cost = cost + regularization * T.sum(layer.W ** 2)
+            if layer.regularization is not None:
+                cost = cost + regularization_factor * layer.regularization
         gparams = [T.grad(cost, param) for param in self.params]
         updates = [
                 (param, param - learning_rate * gparam) for param, gparam in zip(self.params, gparams)
