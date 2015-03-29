@@ -6,121 +6,124 @@ from theano.tensor.shared_randomstreams import RandomStreams
 class InputLayer():
     def __init__(self, name, dimension, input=None):
         self.name   = name
-        self.input  = input
-        self.output = input
+        if input is None:
+            input = T.matrix("input")
+        self.input = input
         self.params = []
         self.dimension = dimension
-        self.regularization = None
+
+    def output(self):
+        return self.input
+
+    def regularization(self):
+        return None
+
+    def initialize(self, rng):
+        pass
 
 class FullyConnLayer():
     def __init__(self,
-                 rng,
                  name,
                  dimension,
-                 input_dimension,
-                 theano_rng = None,
                  input=None,
-                 W=None,
-                 b=None,
                  activation=T.nnet.sigmoid):
-
         self.activation = activation
         self.dimension = dimension
-        self.input_dimension = input_dimension
-        if input is None:
-            self.input = T.dmatrix(name="input")
-        else:
-            self.input = input
+        self.input = input
+        self.name = name
+        self.W = None
+        self.b = None
+        self.params = []
 
-        if theano_rng is None:
-            theano_rng = RandomStreams(rng.randint(2 ** 30))
+    def regularization(self):
+        assert (self.W is not None), "The layer named '{0}' is not initialized"
+        return T.sum(self.W ** 2)
 
+    def initialize(self, rng = None, W = None, b = None):
         if W is None:
+            assert (rng is not None), "Please provide a RNG if you do not set the weights manually"
             initial_W = np.asarray(
                 rng.uniform(
-                    low  = -4 * np.sqrt(6. / (input_dimension + dimension)),
-                    high = 4 * np.sqrt(6. / (input_dimension + dimension)),
-                    size = (input_dimension, dimension)
+                    low  = -4 * np.sqrt(6. / (self.input.dimension + self.dimension)),
+                    high = 4 * np.sqrt(6. / (self.input.dimension + self.dimension)),
+                    size = (self.input.dimension, self.dimension)
                 ),
                 dtype=theano.config.floatX
             )
-            W = theano.shared(value=initial_W, name="W_" + name, borrow=True)
+            W = theano.shared(value=initial_W, name="W_" + self.name, borrow=True)
 
         if b is None:
+            assert (rng is not None), "Please provide a RNG if you do not set the bias manually"
             initial_b = np.zeros(
-                (dimension,),
+                (self.dimension,),
                 dtype=theano.config.floatX
             )
-            b = theano.shared(value=initial_b, name="b_" + name, borrow=True)
+            b = theano.shared(value=initial_b, name="b_" + self.name, borrow=True)
 
-        self.theano_rng = theano_rng
         self.W = W
         self.b = b
-        self.regularization = T.sum(self.W ** 2)
         self.params = [self.W, self.b]
-        self.output = activation(T.dot(self.input, self.W) + self.b)
+
+    def connect(self, input):
+        self.input = input
+
+    def output(self):
+        assert (self.input is not None), "The layer named '{0}' is not connected".format(self.name)
+        assert (self.W is not None and self.b is not None), "The layer named '{0}' is not initialized".format(self.name)
+
+        return self.activation(T.dot(self.input.output(), self.W) + self.b)
 
 class MLP():
-    def __init__(self, input_dimension, input=None):
-        self.rng = np.random.RandomState(42)
-        if input is None:
-            self.input = T.matrix("input")
-        else:
-            self.input = input
-        self.input_dimension = input_dimension
+    def __init__(self):
         self.layers = []
         self.params = []
-        self.layers.append(InputLayer(name="input_layer",
-                                      dimension=self.input_dimension,
-                                      input=self.input))
-        self.output = self.layers[0].output
+        self.rng = np.random.RandomState(42)
 
-    def add_layer(self, name, dimension):
-        assert self.layers != []
-        self.layers.append(FullyConnLayer(self.rng,
-                                          name,
-                                          dimension,
-                                          self.layers[-1].dimension,
-                                          input=self.layers[-1].output))
-        self.output = self.layers[-1].output
+    def add_layer(self, layer):
+        self.layers.append(layer)
+        if len(self.layers) > 1:
+            self.layers[-1].connect(self.layers[-2])
+        self.layers[-1].initialize(self.rng)
         self.params = self.params + self.layers[-1].params
 
+    def output(self):
+        assert (len(self.layers) > 0), "The network needs to contain at least one layer."
+        return self.layers[-1].output()
+
     def remove_last_layer(self):
-        if len(self.layers) == 1:
-            self.params = []
-            self.output = self.input
-        else:
+        if len(self.layers) > 0:
             self.layers.pop()
             self.params = []
             for layer in self.layers:
                 self.params += layer.params
-            self.output = self.layers[-1].output
 
     def build_train(self, learning_rate, regularization_factor, target_weights=None):
+        assert (len(self.layers) > 0), "The network needs to contain at least one layer."
         labels = T.matrix("labels", dtype=theano.config.floatX)
 
         if target_weights is None:
-            cost = T.sum((self.output - labels) ** 2)
+            cost = T.sum((self.output() - labels) ** 2)
         else:
-            cost = T.sum((self.output - labels) ** 2, axis=0)
+            cost = T.sum((self.output() - labels) ** 2, axis=0)
             cost = T.sum(cost * target_weights)
 
         for layer in self.layers:
-            if layer.regularization is not None:
-                cost = cost + regularization_factor * layer.regularization
+            if layer.regularization() is not None:
+                cost = cost + regularization_factor * layer.regularization()
         gparams = [T.grad(cost, param) for param in self.params]
         updates = [
                 (param, param - learning_rate * gparam) for param, gparam in zip(self.params, gparams)
                 ]
 
         return theano.function(
-            inputs = [self.input, labels],
+            inputs = [self.layers[0].input, labels],
             outputs=cost,
             updates=updates
         )
 
     def build_eval(self):
+        assert (len(self.layers) > 0), "The network needs to contain at least one layer."
         return theano.function(
-            inputs = [self.input],
-            outputs = self.output
+            inputs = [self.layers[0].input],
+            outputs = self.output()
         )
