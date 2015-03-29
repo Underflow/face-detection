@@ -99,10 +99,10 @@ class MLP():
     def build_train(self, learning_rate, regularization_factor, target_weights=None):
         labels = T.matrix("labels", dtype=theano.config.floatX)
 
-        cost = T.sum((self.output - labels) ** 2, axis=0)
         if target_weights is None:
-            cost = T.sum(cost)
+            cost = T.sum((self.output - labels) ** 2)
         else:
+            cost = T.sum((self.output - labels) ** 2, axis=0)
             cost = T.sum(cost * target_weights)
 
         for layer in self.layers:
