@@ -79,7 +79,7 @@ class MLP():
         self.params = []
         self.rng = np.random.RandomState(42)
 
-    def add_layer(self, layer):
+    def push_layer(self, layer):
         self.layers.append(layer)
         if len(self.layers) > 1:
             self.layers[-1].connect(self.layers[-2])
@@ -90,7 +90,7 @@ class MLP():
         assert (len(self.layers) > 0), "The network needs to contain at least one layer."
         return self.layers[-1].output()
 
-    def remove_last_layer(self):
+    def pop_layer(self):
         if len(self.layers) > 0:
             self.layers.pop()
             self.params = []
